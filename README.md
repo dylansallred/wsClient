@@ -2,6 +2,9 @@
 
 A modern, feature-rich WebSocket client application with a clean and intuitive user interface. This client allows you to establish WebSocket connections, send/receive messages, and manage predefined message buttons for quick interactions.
 
+![WebSocket Client Interface](wsClient.png)
+
+
 ## Features
 
 - **Real-time Connection Management**
