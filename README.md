@@ -4,6 +4,7 @@ A modern, feature-rich WebSocket client application with a clean and intuitive u
 
 ![WebSocket Client Interface](wsClient.png)
 
+[WebSocket Client Live Demo](https://dylansallred.github.io/wsClient/wsclient)
 
 ## Features
 
