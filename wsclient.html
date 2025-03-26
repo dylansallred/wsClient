@@ -1274,8 +1274,9 @@
         // WebSocket actions
         const websocketActions = {
             connectWebSocket: () => {
-                const ip = state.settings.ip;
-                const port = state.settings.port;
+                // Get current IP from input fields instead of state
+                const ip = utils.getFullIP();
+                const port = elements.websocketPortInput.value;
                 
                 if (!utils.validateIP(ip)) {
                     utils.logMessage('System', 'Invalid IP address format', 'connection-error');
@@ -1290,6 +1291,11 @@
                 const websocketUrl = `ws://${ip}:${port}`;
                 
                 try {
+                    // Update state with current values
+                    state.settings.ip = ip;
+                    state.settings.port = port;
+                    storage.saveSettings();
+                    
                     utils.updateConnectionStatus('connecting');
                     elements.connectButton.textContent = 'Connecting...';
                     elements.connectButton.disabled = true;
