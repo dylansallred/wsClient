@@ -685,8 +685,6 @@
             display: flex;
             align-items: center;
             gap: 2px;
-            background: #333;
-            border: 1px solid #555;
             border-radius: 4px;
             padding: 2px;
             transition: all 0.2s ease;
@@ -750,6 +748,17 @@
             padding: 0 2px;
             user-select: none;
         }
+
+        .ws-prefix {
+            color: #888;
+            font-family: 'JetBrains Mono', monospace;
+            margin-right: -5px;
+            font-size: 0.8rem;
+        }
+
+        .ip-input-container {
+            border-radius: 0 4px 4px 0;
+        }
     </style>
 </head>
 <body>
@@ -774,6 +783,7 @@
         <div class="control-panel">
             <div class="control-row">
                 <label for="ip-container">IP Address:</label>
+                <span class="ws-prefix">ws://</span>
                 <div id="ip-container" class="ip-input-container">
                     <input type="text" class="ip-octet" id="octet1" maxlength="3">
                     <span class="ip-separator">.</span>
@@ -1213,6 +1223,7 @@
                 state.connectionStats.messagesReceived = 0;
                 state.connectionStats.lastActivity = new Date();
                 utils.updateConnectionInfo();
+                elements.stopReconnectBtn.style.display = 'none';
             },
             handleMessage: (event) => {
                 const formattedMessage = utils.formatJSON(event.data);
@@ -1224,6 +1235,16 @@
             handleError: () => {
                 utils.logMessage('System', 'WebSocket error occurred', 'connection-error');
                 utils.updateConnectionStatus('error');
+                elements.connectButton.textContent = 'Connect';
+                elements.connectButton.classList.remove('disconnect');
+                elements.connectButton.disabled = false;
+                
+                // Only attempt reconnect if auto-reconnect is enabled
+                if (elements.reconnectCheckbox.checked) {
+                    const interval = parseInt(elements.reconnectIntervalInput.value, 10) || config.defaultReconnectInterval;
+                    utils.logMessage('System', `Attempting to reconnect in ${interval / 1000} seconds...`, 'connection-attempt');
+                    websocketActions.startReconnectTimer(interval);
+                }
             },
             handleClose: (event) => {
                 const wasConnected = state.websocket && state.websocket.readyState === WebSocket.OPEN;
@@ -1238,6 +1259,7 @@
                 const reason = event.reason ? ` (Reason: ${event.reason})` : '';
                 utils.logMessage('System', `Disconnected from server, WebSocket closed with code ${event.code}${reason}`, 'connection-closed');
 
+                // Only attempt to reconnect if auto-reconnect is enabled AND we were previously connected
                 if (elements.reconnectCheckbox.checked && wasConnected) {
                     const interval = parseInt(elements.reconnectIntervalInput.value, 10) || config.defaultReconnectInterval;
                     utils.logMessage('System', `Attempting to reconnect in ${interval / 1000} seconds...`, 'connection-attempt');
@@ -1246,14 +1268,6 @@
 
                 elements.connectedSince.textContent = '-';
                 elements.lastActivity.textContent = '-';
-
-                if (event.code === 1006 && elements.reconnectCheckbox.checked) {
-                    utils.logMessage('System', 'Connection closed abnormally. Attempting to reconnect...', 'connection-error');
-                    const interval = parseInt(elements.reconnectIntervalInput.value, 10) || config.defaultReconnectInterval;
-                    websocketActions.startReconnectTimer(interval);
-                } else if (event.code === 1006) {
-                    utils.logMessage('System', 'Connection closed abnormally.', 'connection-error');
-                }
             },
         };
 
@@ -1279,6 +1293,7 @@
                     utils.updateConnectionStatus('connecting');
                     elements.connectButton.textContent = 'Connecting...';
                     elements.connectButton.disabled = true;
+                    elements.stopReconnectBtn.style.display = 'inline-block';
 
                     state.websocket = new WebSocket(websocketUrl);
                     state.websocket.onopen = websocketHandlers.handleOpen;
@@ -1290,22 +1305,53 @@
                 } catch (error) {
                     utils.logMessage('System', `Connection error: ${error.message}`, 'connection-error');
                     utils.updateConnectionStatus('error');
+                    elements.stopReconnectBtn.style.display = 'none';
                 }
             },
             disconnectWebSocket: () => {
                 if (state.websocket) {
+                    // Store the current readyState before closing
+                    const wasConnecting = state.websocket.readyState === WebSocket.CONNECTING;
+                    
+                    // Remove all event listeners
+                    state.websocket.onopen = null;
+                    state.websocket.onmessage = null;
+                    state.websocket.onerror = null;
+                    state.websocket.onclose = null;
+                    
+                    // Close the connection
                     state.websocket.close();
+                    
+                    // Clean up
                     websocketActions.stopReconnectTimer();
                     elements.stopReconnectBtn.style.display = 'none';
                     state.hasConnected = false;
+                    state.websocket = null;
+                    
+                    // Reset UI immediately
+                    utils.updateConnectionStatus('disconnected');
+                    elements.connectButton.textContent = 'Connect';
+                    elements.connectButton.classList.remove('disconnect');
+                    elements.connectButton.disabled = false;
+                    
+                    if (wasConnecting) {
+                        utils.logMessage('System', 'Connection attempt cancelled', 'connection-closed');
+                    }
                 }
             },
             toggleConnection: () => {
+                if (state.websocket && state.websocket.readyState === WebSocket.CONNECTING) {
+                    // If currently connecting, cancel the connection attempt
+                    websocketActions.disconnectWebSocket();
+                    return;
+                }
+                
                 if (state.reconnectTimer) {
                     websocketActions.stopReconnecting();
                     return;
                 }
-                if (state.websocket && (state.websocket.readyState === WebSocket.OPEN || state.websocket.readyState === WebSocket.CONNECTING)) {
+                
+                if (state.websocket && state.websocket.readyState === WebSocket.OPEN) {
                     websocketActions.disconnectWebSocket();
                 } else {
                     websocketActions.connectWebSocket();
@@ -1326,10 +1372,40 @@
                 }
             },
             stopReconnecting: () => {
+                // Clear any existing reconnect timer
                 websocketActions.stopReconnectTimer();
+                
+                // Disable auto-reconnect setting
                 state.settings.autoReconnect = false;
                 storage.saveSettings();
+                
+                // Update UI
                 elements.stopReconnectBtn.style.display = 'none';
+                elements.reconnectCheckbox.checked = false;
+                
+                // Clean up any active WebSocket connection
+                if (state.websocket) {
+                    // Remove all event listeners to prevent any callbacks
+                    state.websocket.onopen = null;
+                    state.websocket.onmessage = null;
+                    state.websocket.onerror = null;
+                    state.websocket.onclose = null;
+                    
+                    // Close the connection if it's not already closed
+                    if (state.websocket.readyState !== WebSocket.CLOSED) {
+                        state.websocket.close();
+                    }
+                    
+                    // Nullify the reference
+                    state.websocket = null;
+                }
+                
+                // Reset connection status
+                utils.updateConnectionStatus('disconnected');
+                elements.connectButton.textContent = 'Connect';
+                elements.connectButton.classList.remove('disconnect');
+                elements.connectButton.disabled = false;
+                
                 utils.logMessage('System', 'Auto-reconnect stopped by user', 'connection-closed');
                 state.hasConnected = false;
             },
