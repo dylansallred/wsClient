@@ -1459,12 +1459,7 @@
                     const isLocalIP = ip.match(/^(127\.|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/) !== null;
                     
                     if (!isLocalIP) {
-                        utils.logMessage('System', 'When using HTTPS, you can only connect to local IP addresses:', 'connection-error');
-                        utils.logMessage('System', '• 127.x.x.x (localhost)', 'connection-error');
-                        utils.logMessage('System', '• 10.x.x.x', 'connection-error');
-                        utils.logMessage('System', '• 192.168.x.x', 'connection-error');
-                        utils.logMessage('System', '• 172.16.x.x to 172.31.x.x', 'connection-error');
-                        utils.logMessage('System', 'For other IPs, please download and run this file locally', 'connection-error');
+                        utils.logMessage('System', 'When using HTTPS, you can only connect to local IP addresses. Please download and run this file locally', 'connection-error');
                         utils.updateConnectionStatus('error');
                         return;
                     }
