@@ -1443,8 +1443,7 @@
             connectWebSocket: () => {
                 // Check if running on HTTPS
                 if (window.location.protocol === 'https:') {
-                    utils.logMessage('System', 'Cannot establish WebSocket connection from HTTPS', 'connection-error');
-                    utils.logMessage('System', 'Download and run this file locally', 'connection-error');
+                    utils.logMessage('System', 'Cannot establish WebSocket connection from HTTPS. Download and run this file locally', 'connection-error');
                     utils.updateConnectionStatus('error');
                     return;
                 }
