@@ -6,6 +6,52 @@
     <title>Enhanced WebSocket Client</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
     <style>
+        /* Add loading overlay styles at the top */
+        #loadingOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #121212;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            opacity: 1;
+            transition: opacity 0.3s ease-out;
+        }
+
+        #loadingOverlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid #333;
+            border-radius: 50%;
+            border-top-color: #4CAF50;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Hide the main content initially */
+        .container {
+            opacity: 0;
+            transition: opacity 0.3s ease-in;
+        }
+
+        .container.loaded {
+            opacity: 1;
+        }
+
         body {
             background-color: #121212;
             color: #e0e0e0; 
@@ -75,6 +121,12 @@
             padding: 20px;
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
             border: 1px solid #333;
+        }
+        .control-panel label {
+           font-size: 0.8rem;
+           color: #EEE;
+           padding: 5px;
+           box-shadow: 0px 3px #af4c59;
         }
         .status-indicator {
             display: inline-block;
@@ -183,6 +235,12 @@
             align-items: center;
             margin-bottom: 15px;
         }
+        .control-divider {
+            width: 1px;
+            height: 24px;
+            background-color: #333;
+            margin: auto 0;
+        }
         input, button, select, textarea {
             background-color: #333;
             color: #ffffff;
@@ -228,6 +286,7 @@
         input[type="text"] {
             flex-grow: 1;
         }
+
         button {
             padding: 8px 12px;
             border-radius: 4px;
@@ -785,7 +844,6 @@
 
         .ip-separator {
             color: #888;
-            padding: 0 2px;
             user-select: none;
         }
 
@@ -804,6 +862,11 @@
     </style>
 </head>
 <body>
+    <!-- Add loading overlay -->
+    <div id="loadingOverlay">
+        <div class="loading-spinner"></div>
+    </div>
+
     <div class="container">
         <div class="header-status-row">
             <h1>WebSocket Client</h1>
@@ -835,22 +898,27 @@
                     <span class="ip-separator">.</span>
                     <input type="text" class="ip-octet" id="octet4" maxlength="3">
                 </div>
+                <div class="control-divider"></div>
                 <label for="websocketPort">Port:</label>
                 <input type="text" id="websocketPort" value="8080" style="width: 80px;">
+                <div class="control-divider"></div>
                 <label for="subnetMask">Subnet:</label>
                 <select id="subnetMask">
-                    <option value="8">/8 (255.0.0.0)</option>
-                    <option value="16">/16 (255.255.0.0)</option>
-                    <option value="24" selected>/24 (255.255.255.0)</option>
-                    <option value="32">/32 (Full IP editable)</option>
+                    <option value="8">/8</option>
+                    <option value="16">/16</option>
+                    <option value="24" selected>/24</option>
+                    <option value="32">/32</option>
                 </select>
+                <div class="control-divider"></div>
                 <button id="connectButton">Connect</button>
             </div>
             
             <div class="control-row">
                 <label for="reconnect">Auto-reconnect:</label>
                 <input type="checkbox" id="reconnect">
+                <div class="control-divider"></div>
                 <label for="reconnectInterval">Interval (ms):</label>
+                
                 <input type="number" id="reconnectInterval" value="3000" min="1000" style="width: 100px;">
             </div>
             
@@ -866,6 +934,7 @@
                 <div class="message-input-container">
                     <input type="text" id="messageInput" placeholder="Connect to send messages..." disabled>
                 </div>
+                <div class="control-divider"></div>
                 <button id="sendButton" disabled>Send</button>
             </div>
             
@@ -880,7 +949,9 @@
             <div class="control-row">
                 <div class="utility-buttons">
                     <button id="exportLogsBtn" class="utility-btn export-btn">Export Logs</button>
+                    <div class="control-divider"></div>
                     <button id="clearLogsBtn" class="utility-btn clear-btn">Clear Log</button>
+                    <div class="control-divider"></div>
                     <button id="manageButtonsBtn" class="utility-btn manage-btn">Manage Buttons</button>
                 </div>
             </div>
@@ -1784,24 +1855,54 @@
             elements.messageInput.addEventListener('input', utils.updateSendButtonState);
         };
 
-        // Initialization
+        // Modify the init function to handle loading state
         const init = () => {
-            // Set default IP before loading settings
-            utils.setDefaultIP();
+            // Create a promise that resolves when fonts are loaded
+            const fontsLoaded = document.fonts.ready;
             
-            storage.loadSettings();
-            initEventListeners();
-            utils.updateConnectionInfo();
-            utils.updateIPFieldBasedOnSubnet();
-            
-            // Initialize the IP field with subnet constraints
-            utils.updateIPFieldBasedOnSubnet();
-            
-            // Set initial tooltip
-            elements.websocketIpInput.title = "Double-click to edit full IP";
+            // Create a promise that resolves when the page is fully loaded
+            const pageLoaded = new Promise(resolve => {
+                if (document.readyState === 'complete') {
+                    resolve();
+                } else {
+                    window.addEventListener('load', resolve);
+                }
+            });
+
+            // Wait for both fonts and page to load
+            Promise.all([fontsLoaded, pageLoaded])
+                .then(() => {
+                    // Set default IP before loading settings
+                    utils.setDefaultIP();
+                    
+                    storage.loadSettings();
+                    initEventListeners();
+                    utils.updateConnectionInfo();
+                    utils.updateIPFieldBasedOnSubnet();
+                    
+                    // Initialize the IP field with subnet constraints
+                    utils.updateIPFieldBasedOnSubnet();
+                    
+                    // Set initial tooltip
+                    elements.websocketIpInput.title = "Double-click to edit full IP";
+
+                    // Show the content
+                    document.querySelector('.container').classList.add('loaded');
+                    
+                    // Hide the loading overlay
+                    setTimeout(() => {
+                        document.getElementById('loadingOverlay').classList.add('hidden');
+                    }, 100);
+                })
+                .catch(error => {
+                    console.error('Error during initialization:', error);
+                    // Still hide loading overlay even if there's an error
+                    document.getElementById('loadingOverlay').classList.add('hidden');
+                });
         };
 
-        window.onload = init;
+        // Change window.onload to just call init
+        document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
 </html>
