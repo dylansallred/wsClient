@@ -1441,6 +1441,15 @@
         // WebSocket actions
         const websocketActions = {
             connectWebSocket: () => {
+                // Check if running on HTTPS
+                if (window.location.protocol === 'https:') {
+                    utils.logMessage('System', 'Cannot establish WebSocket connection from HTTPS. Please either:', 'connection-error');
+                    utils.logMessage('System', '1. Download and run this file locally, or', 'connection-error');
+                    utils.logMessage('System', '2. Use a WSS (secure WebSocket) server instead', 'connection-error');
+                    utils.updateConnectionStatus('error');
+                    return;
+                }
+
                 // Get current IP from input fields instead of state
                 const ip = utils.getFullIP();
                 const port = elements.websocketPortInput.value;
