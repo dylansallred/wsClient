@@ -38,10 +38,11 @@
             font-size: 0.9rem;
             align-items: center;
             justify-content: space-between;
-            background: rgba(26, 26, 26, 0.6);
+            background: rgba(26, 26, 26, 0.8);
             padding: 10px 15px;
-            border-radius: 6px;
+            border-radius: 8px;
             border: 1px solid #2a2a2a;
+            backdrop-filter: blur(4px);
         }
         .connection-info-stats {
             display: flex;
@@ -58,10 +59,12 @@
         .connection-info-stats div span {
             color: #e0e0e0;
             font-family: 'JetBrains Mono', monospace;
-            background: rgba(255, 255, 255, 0.05);
+            background: rgba(255, 255, 255, 0.08);
             padding: 2px 6px;
-            border-radius: 3px;
+            border-radius: 4px;
             font-size: 0.9rem;
+            display: inline-block;
+            text-align: center;
         }
         .connection-info div {
             margin-right: 5px;
@@ -80,6 +83,7 @@
             border-radius: 50%;
             margin-right: 10px;
             position: relative;
+            box-shadow: 0 0 0 2px rgba(255,255,255,0.1);
         }
         .status-indicator::after {
             content: '';
@@ -141,18 +145,37 @@
         #messages {
             background-color: #1e1e1e;
             border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
             height: 300px;
             overflow-y: auto;
             padding: 15px;
             margin-top: 5px;
             border: 1px solid #333;
             font-family: 'JetBrains Mono', 'Consolas', monospace;
+            scrollbar-width: thin;
+            scrollbar-color: #4CAF50 #2a2a2a;
+        }
+        #messages::-webkit-scrollbar {
+            width: 8px;
+        }
+        #messages::-webkit-scrollbar-track {
+            background: #2a2a2a;
+            border-radius: 4px;
+        }
+        #messages::-webkit-scrollbar-thumb {
+            background-color: #4CAF50;
+            border-radius: 4px;
         }
         .message {
             margin-bottom: 3px;
             padding: 3px 5px;
             font-size: 0.9rem;
+            opacity: 0;
+            animation: fadeIn 0.3s ease forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
         }
         .control-row {
             display: flex;
@@ -173,6 +196,8 @@
             outline: none;
             border: 1px solid #4CAF50;
             box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.25);
+            background-color: #2a2a2a;
+            transition: all 0.2s ease;
         }
         
         input:disabled, button:disabled, select:disabled, textarea:disabled {
@@ -215,8 +240,9 @@
             color: white;
         }
         button:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            transform: translateY(-1px);
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+            transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
         }
         button:disabled {
             background-color: #cccccc;
@@ -450,8 +476,15 @@
             padding: 0;
             width: 80%;
             max-width: 600px;
-            border-radius: 8px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+            border: 1px solid #4CAF50;
+            overflow: hidden;
+            transform: scale(0.95);
+            animation: modalOpen 0.3s ease forwards;
+        }
+        @keyframes modalOpen {
+            to { transform: scale(1); }
         }
         .modal-header {
             padding: 15px 20px;
@@ -459,6 +492,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            background-color: rgba(76, 175, 80, 0.1);
         }
         .modal-header h3 {
             margin: 0;
@@ -555,7 +589,7 @@
             background-color: #3498db;
             color: white;
             font-weight: bold;
-            min-width: 100px;
+            min-width: 140px;
             transition: all 0.3s;
         }
         button#connectButton:hover {
@@ -565,6 +599,12 @@
             background-color: #e74c3c;
         }
         button#connectButton.disconnect:hover {
+            background-color: #c0392b;
+        }
+        button#connectButton.stop {
+            background-color: #e74c3c;
+        }
+        button#connectButton.stop:hover {
             background-color: #c0392b;
         }
         .message-btn:disabled {
@@ -759,6 +799,8 @@
         .ip-input-container {
             border-radius: 0 4px 4px 0;
         }
+
+    
     </style>
 </head>
 <body>
@@ -810,7 +852,6 @@
                 <input type="checkbox" id="reconnect">
                 <label for="reconnectInterval">Interval (ms):</label>
                 <input type="number" id="reconnectInterval" value="3000" min="1000" style="width: 100px;">
-                <button id="stopReconnectBtn" class="stop-reconnect-btn" style="display: none;">Stop Reconnecting</button>
             </div>
             
             <div class="control-row">
@@ -957,7 +998,6 @@
             saveButtonBtn: document.getElementById('saveButtonBtn'),
             cancelEditBtn: document.getElementById('cancelEditBtn'),
             editModalTitle: document.getElementById('editModalTitle'),
-            stopReconnectBtn: document.getElementById('stopReconnectBtn'),
             ipContainer: document.getElementById('ip-container'),
             octets: [
                 document.getElementById('octet1'),
@@ -1204,6 +1244,11 @@
                 const portNum = parseInt(port, 10);
                 return !isNaN(portNum) && portNum > 0 && portNum <= 65535;
             },
+            updateSendButtonState: () => {
+                const isConnected = state.websocket && state.websocket.readyState === WebSocket.OPEN;
+                const hasMessage = elements.messageInput.value.trim().length > 0;
+                elements.sendButton.disabled = !isConnected || !hasMessage;
+            },
         };
 
         // WebSocket event handlers
@@ -1213,17 +1258,17 @@
                 utils.logMessage('System', 'Connected to WebSocket server', 'connection-success');
                 utils.updateConnectionStatus('connected');
                 elements.connectButton.textContent = 'Disconnect';
+                elements.connectButton.classList.remove('stop');
                 elements.connectButton.classList.add('disconnect');
                 elements.connectButton.disabled = false;
                 elements.messageInput.disabled = false;
-                elements.sendButton.disabled = false;
+                utils.updateSendButtonState();
                 utils.updateMessageButtonsState(true);
                 state.connectionStats.connectedAt = new Date();
                 state.connectionStats.messagesSent = 0;
                 state.connectionStats.messagesReceived = 0;
                 state.connectionStats.lastActivity = new Date();
                 utils.updateConnectionInfo();
-                elements.stopReconnectBtn.style.display = 'none';
             },
             handleMessage: (event) => {
                 const formattedMessage = utils.formatJSON(event.data);
@@ -1236,8 +1281,9 @@
                 utils.logMessage('System', 'WebSocket error occurred', 'connection-error');
                 utils.updateConnectionStatus('error');
                 elements.connectButton.textContent = 'Connect';
-                elements.connectButton.classList.remove('disconnect');
+                elements.connectButton.classList.remove('disconnect', 'stop');
                 elements.connectButton.disabled = false;
+                utils.updateMessageButtonsState(false);
                 
                 // Only attempt reconnect if auto-reconnect is enabled
                 if (elements.reconnectCheckbox.checked) {
@@ -1250,10 +1296,10 @@
                 const wasConnected = state.websocket && state.websocket.readyState === WebSocket.OPEN;
                 utils.updateConnectionStatus('disconnected');
                 elements.connectButton.textContent = 'Connect';
-                elements.connectButton.classList.remove('disconnect');
+                elements.connectButton.classList.remove('disconnect', 'stop');
                 elements.connectButton.disabled = false;
                 elements.messageInput.disabled = true;
-                elements.sendButton.disabled = true;
+                utils.updateSendButtonState();
                 utils.updateMessageButtonsState(false);
 
                 const reason = event.reason ? ` (Reason: ${event.reason})` : '';
@@ -1297,9 +1343,10 @@
                     storage.saveSettings();
                     
                     utils.updateConnectionStatus('connecting');
-                    elements.connectButton.textContent = 'Connecting...';
-                    elements.connectButton.disabled = true;
-                    elements.stopReconnectBtn.style.display = 'inline-block';
+                    elements.connectButton.textContent = 'Stop';
+                    elements.connectButton.classList.add('stop');
+                    elements.connectButton.disabled = false;
+                    utils.updateMessageButtonsState(false);
 
                     state.websocket = new WebSocket(websocketUrl);
                     state.websocket.onopen = websocketHandlers.handleOpen;
@@ -1311,7 +1358,7 @@
                 } catch (error) {
                     utils.logMessage('System', `Connection error: ${error.message}`, 'connection-error');
                     utils.updateConnectionStatus('error');
-                    elements.stopReconnectBtn.style.display = 'none';
+                    utils.updateMessageButtonsState(false);
                 }
             },
             disconnectWebSocket: () => {
@@ -1330,15 +1377,16 @@
                     
                     // Clean up
                     websocketActions.stopReconnectTimer();
-                    elements.stopReconnectBtn.style.display = 'none';
                     state.hasConnected = false;
                     state.websocket = null;
                     
                     // Reset UI immediately
                     utils.updateConnectionStatus('disconnected');
                     elements.connectButton.textContent = 'Connect';
-                    elements.connectButton.classList.remove('disconnect');
+                    elements.connectButton.classList.remove('disconnect', 'stop');
                     elements.connectButton.disabled = false;
+                    utils.updateMessageButtonsState(false);
+                    utils.updateSendButtonState();
                     
                     if (wasConnecting) {
                         utils.logMessage('System', 'Connection attempt cancelled', 'connection-closed');
@@ -1366,15 +1414,11 @@
             startReconnectTimer: (interval) => {
                 websocketActions.stopReconnectTimer();
                 state.reconnectTimer = setTimeout(websocketActions.connectWebSocket, interval);
-                elements.stopReconnectBtn.style.display = 'inline-block';
             },
             stopReconnectTimer: () => {
                 if (state.reconnectTimer) {
                     clearTimeout(state.reconnectTimer);
                     state.reconnectTimer = null;
-                    if (!elements.reconnectCheckbox.checked) {
-                        elements.stopReconnectBtn.style.display = 'none';
-                    }
                 }
             },
             stopReconnecting: () => {
@@ -1386,7 +1430,6 @@
                 storage.saveSettings();
                 
                 // Update UI
-                elements.stopReconnectBtn.style.display = 'none';
                 elements.reconnectCheckbox.checked = false;
                 
                 // Clean up any active WebSocket connection
@@ -1409,8 +1452,9 @@
                 // Reset connection status
                 utils.updateConnectionStatus('disconnected');
                 elements.connectButton.textContent = 'Connect';
-                elements.connectButton.classList.remove('disconnect');
+                elements.connectButton.classList.remove('disconnect', 'stop');
                 elements.connectButton.disabled = false;
+                utils.updateSendButtonState();
                 
                 utils.logMessage('System', 'Auto-reconnect stopped by user', 'connection-closed');
                 state.hasConnected = false;
@@ -1633,6 +1677,12 @@
             });
 
             elements.ipContainer.addEventListener('dblclick', (e) => {
+                // If already in edit mode and double-clicking an octet, exit edit mode
+                if (state.ipEditMode && e.target.classList.contains('ip-octet')) {
+                    utils.exitIPEditMode();
+                    return;
+                }
+                
                 // Only enter edit mode if clicking on a readonly field or the container itself
                 if (!state.ipEditMode && 
                     (e.target.classList.contains('ip-octet') && e.target.readOnly) || 
@@ -1709,7 +1759,6 @@
 
             elements.exportLogsBtn.addEventListener('click', () => utils.downloadTextFile(elements.messagesContainer.innerText, 'websocket_logs.txt'));
             elements.clearLogsBtn.addEventListener('click', utils.clearMessages);
-            elements.stopReconnectBtn.addEventListener('click', websocketActions.stopReconnecting);
 
             document.addEventListener('visibilitychange', () => {
                 if (document.visibilityState === 'visible' && elements.reconnectCheckbox.checked && state.hasConnected && (!state.websocket || state.websocket.readyState === WebSocket.CLOSED)) {
@@ -1730,6 +1779,9 @@
                     utils.exitIPEditMode();
                 }
             });
+
+            // Add input event listener for message input
+            elements.messageInput.addEventListener('input', utils.updateSendButtonState);
         };
 
         // Initialization
