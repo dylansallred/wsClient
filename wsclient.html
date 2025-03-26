@@ -1462,6 +1462,7 @@
                 elements.connectButton.classList.remove('disconnect', 'stop');
                 elements.connectButton.disabled = false;
                 elements.messageInput.disabled = true;
+                elements.messageInput.placeholder = "Connect to send messages...";
                 utils.updateSendButtonState();
                 utils.updateMessageButtonsState(false);
 
@@ -1539,6 +1540,7 @@
                 if (state.websocket) {
                     // Store the current readyState before closing
                     const wasConnecting = state.websocket.readyState === WebSocket.CONNECTING;
+                    const wasConnected = state.websocket.readyState === WebSocket.OPEN;
                     
                     // Remove all event listeners
                     state.websocket.onopen = null;
@@ -1559,10 +1561,14 @@
                     elements.connectButton.textContent = 'Connect';
                     elements.connectButton.classList.remove('disconnect', 'stop');
                     elements.connectButton.disabled = false;
+                    elements.messageInput.disabled = true;
+                    elements.messageInput.placeholder = "Connect to send messages...";
                     utils.updateSendButtonState();
                     
                     if (wasConnecting) {
                         utils.logMessage('System', 'Connection attempt cancelled', 'connection-closed');
+                    } else if (wasConnected) {
+                        utils.logMessage('System', 'Disconnected by user', 'connection-closed');
                     }
                 }
             },
