@@ -858,7 +858,57 @@
             border-radius: 0 4px 4px 0;
         }
 
-    
+        input[type="checkbox"] {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            width: 22px;
+            height: 22px;
+            border: 2px solid #3498db;
+            border-radius: 6px;
+            background-color: #1a1a1a;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        input[type="checkbox"]:checked {
+            background-color: #3498db;
+            border-color: #3498db;
+        }
+
+        input[type="checkbox"]:checked::after {
+            content: '';
+            position: absolute;
+            left: 6px;
+            top: 2px;
+            width: 4px;
+            height: 10px;
+            border: solid white;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+        }
+
+        input[type="checkbox"]:hover {
+            box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.2);
+        }
+
+        input[type="checkbox"]:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px #3498db51;
+        }
+
+        input[type="checkbox"]:disabled {
+            background-color: #333;
+            border-color: #666;
+            cursor: not-allowed;
+        }
+
+        input[type="checkbox"]:disabled:checked {
+            background-color: #666;
+            border-color: #666;
+        }
+
     </style>
 </head>
 <body>
@@ -1456,7 +1506,6 @@
                     elements.connectButton.textContent = 'Connect';
                     elements.connectButton.classList.remove('disconnect', 'stop');
                     elements.connectButton.disabled = false;
-                    utils.updateMessageButtonsState(false);
                     utils.updateSendButtonState();
                     
                     if (wasConnecting) {
@@ -1625,8 +1674,10 @@
                     elements.buttonMessage.value = button.message;
                     elements.editModalTitle.textContent = 'Edit Message Button';
                 } else {
+                    // When adding new button, check if there's text in the message input
+                    const currentMessage = elements.messageInput.value.trim();
                     elements.buttonLabel.value = '';
-                    elements.buttonMessage.value = '';
+                    elements.buttonMessage.value = currentMessage; // Pre-populate with current message
                     elements.editModalTitle.textContent = 'Add Message Button';
                 }
                 elements.editButtonModal.style.display = 'block';
